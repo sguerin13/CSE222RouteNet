@@ -9,7 +9,7 @@ from torch_geometric.nn import GCNConv
 class RouteNet(nn.Module):
 
     def __init__(self):
-        super(RouteNet,self)__init__()
+        super(RouteNet,self).__init__()
 
         ### Architecture ###
         # for gru need to pay attention to if input is of size:
@@ -32,8 +32,8 @@ class RouteNet(nn.Module):
         self.p_U = nn.GRU(self.path_state_dim,hSize,nLayer,batch_first=True)
 
         self.readOut1 = nn.Linear(hSize,self.readout_dim)
-        self.readOut2 = nn.Linear(self.readout_dim),self.readout_dim)
-        self.readOut3 = nn.Linear(self.readout_dim),self.output_units)
+        self.readOut2 = nn.Linear(self.readout_dim,self.readout_dim)
+        self.readOut3 = nn.Linear(self.readout_dim,self.output_units)
 
 
     def forward(self,x):
