@@ -1,25 +1,48 @@
-from torch.utils.data import Dataset, DataLoader
+"""
+   Copyright 2020 Universitat Politècnica de Catalunya
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+"""
+
 import numpy as np
+import tensorflow as tf
 
 from datanetAPI import DatanetAPI
 
+POLICIES = np.array(['WFQ', 'SP', 'DRR'])
 
-class NetworkDataset(Dataset):
-    def __init__(self, path, shuffle=False):
-        super(NetworkDataset, self).__init__()
-        
-        reader = DatanetAPI(path, [], shuffle)
-        it = iter(reader)
-        self.data = list(it)
-        self.length = len(self.data)
-    
-    def __len__(self):
-        return self.length
-    
-    def __getitem__(self, index):
-        # reference: https://github.com/knowledgedefinednetworking/RouteNet-challenge/blob/master/code/read_dataset.py
-        sample = self.data[index]
-        
+def generator(data_dir, shuffle = False):
+    """This function uses the provided API to read the data and returns
+       and returns the different selected features.
+
+    Args:
+        data_dir (string): Path of the data directory.
+        shuffle (string): If true, the data is shuffled before being processed.
+
+    Returns:
+        tuple: The first element contains a dictionary with the following keys:
+            - bandwith
+            - packets
+            - link_capacity
+            - links
+            - paths
+            - sequences
+            - n_links, n_paths
+            The second element contains the source-destination delay
+    """
+    tool = DatanetAPI(data_dir, [], shuffle)
+    it = iter(tool)
+    for sample in it:
         ###################
         #  EXTRACT PATHS  #
         ###################
@@ -35,15 +58,14 @@ class NetworkDataset(Dataset):
         ###################
         g = sample.get_topology_object()
 
-        # Initialize with shape and value None
-        cap_mat = np.full(
-            (g.number_of_nodes(), g.number_of_nodes()), fill_value=None)
+        cap_mat = np.full((g.number_of_nodes(), g.number_of_nodes()), fill_value=None)
 
         for node in range(g.number_of_nodes()):
             for adj in g[node]:
                 cap_mat[node, adj] = g[node][adj][0]['bandwidth']
 
         print(cap_mat)
+        print(cap_mat.shape)
 
         links = np.where(np.ravel(cap_mat) != None)[0].tolist()
 
@@ -76,13 +98,11 @@ class NetworkDataset(Dataset):
 
         traffic = sample.get_traffic_matrix()
         # Remove diagonal from matrix
-        traffic = traffic[~np.eye(traffic.shape[0], dtype=bool)].reshape(
-            traffic.shape[0], -1)
+        traffic = traffic[~np.eye(traffic.shape[0], dtype=bool)].reshape(traffic.shape[0], -1)
 
         result = sample.get_performance_matrix()
         # Remove diagonal from matrix
-        result = result[~np.eye(result.shape[0], dtype=bool)].reshape(
-            result.shape[0], -1)
+        result = result[~np.eye(result.shape[0], dtype=bool)].reshape(result.shape[0], -1)
 
         avg_bw = []
         pkts_gen = []
@@ -98,94 +118,58 @@ class NetworkDataset(Dataset):
         n_paths = len(path_ids)
         n_links = max(max(path_ids)) + 1
 
-        return {
-            "bandwith": avg_bw, 
-            "packets": pkts_gen,
-            "link_capacity": link_capacities,
-            "links": link_indices,
-            "paths": path_indices, 
-            "sequences": sequ_indices,
-            "n_links": n_links, 
-            "n_paths": n_paths
-        }, delay
-
-def get_dataloader(dataset, batch_size, shuffle=False):
-    return DataLoader(dataset, batch_size, shuffle)   
+        yield {"bandwith": avg_bw, "packets": pkts_gen,
+               "link_capacity": link_capacities,
+               "links": link_indices,
+               "paths": path_indices, "sequences": sequ_indices,
+               "n_links": n_links, "n_paths": n_paths}, delay
 
 
-if __name__ == "__main__":
-    path = '~/Documents/UCSD/222A/project/RouteNet-challenge/data/sample_data/test'
-    # path = '~/222A/RouteNet-challenge/data/sample_data/test'
-    dataset = NetworkDataset(path)
-    
-    dataloader = get_dataloader(dataset, 8)
-    
-    for batch_index, batch in enumerate(dataloader):
-        x, delay = batch
-        
-    
+def transformation(x, y):
+    """Apply a transformation over all the samples included in the dataset.
 
-'''
-README:
-    Model Inputs:
-    - Link,Path,Seq Indices, n_paths, n_links
-    
-TF version:
-    ds = tf.data.Dataset.from_generator(
-        lambda: generator(data_dir=data_dir, shuffle=shuffle),
-        
-        # output type
-        ({"bandwith": tf.float32, "packets": tf.float32,
-            "link_capacity": tf.float32, "links": tf.int64,
-            "paths": tf.int64, "sequences": tf.int64,
-            "n_links": tf.int64, "n_paths": tf.int64},
-        tf.float32),
-        
-        # output shape
-        ({"bandwith": tf.TensorShape([None]), "packets": tf.TensorShape([None]),
-            "link_capacity": tf.TensorShape([None]),
-            "links": tf.TensorShape([None]),
-            "paths": tf.TensorShape([None]),
-            "sequences": tf.TensorShape([None]),
-            "n_links": tf.TensorShape([]),
-            "n_paths": tf.TensorShape([])},
-            tf.TensorShape([None])))
+        Args:
+            x (dict): predictor variable.
+            y (array): target variable.
+
+        Returns:
+            x,y: The modified predictor/target variables.
+        """
+    return x, y
 
 
-Sample:
-- Routing Matrix: n x n - number of nodes
+def input_fn(data_dir, transform=True, repeat=True, shuffle=False):
+    """This function uses the generator function in order to create a Tensorflow dataset
 
-- Capacity Matrix: n x n
+        Args:
+            data_dir (string): Path of the data directory.
+            transform (bool): If true, the data is transformed using the transformation function.
+            repeat (bool): If true, the data is repeated. This means that, when all the data has been read,
+                            the generator starts again.
+            shuffle (bool): If true, the data is shuffled before being processed.
 
-- Path_ids: n_paths x 1 = 182 x 1
+        Returns:
+            tf.data.Dataset: Containing a tuple where the first value are the predictor variables and
+                             the second one is the target variable.
+        """
+    ds = tf.data.Dataset.from_generator(lambda: generator(data_dir=data_dir, shuffle=shuffle),
+                                        ({"bandwith": tf.float32, "packets": tf.float32,
+                                          "link_capacity": tf.float32, "links": tf.int64,
+                                          "paths": tf.int64, "sequences": tf.int64,
+                                          "n_links": tf.int64, "n_paths": tf.int64},
+                                        tf.float32),
+                                        ({"bandwith": tf.TensorShape([None]), "packets": tf.TensorShape([None]),
+                                          "link_capacity": tf.TensorShape([None]),
+                                          "links": tf.TensorShape([None]),
+                                          "paths": tf.TensorShape([None]),
+                                          "sequences": tf.TensorShape([None]),
+                                          "n_links": tf.TensorShape([]),
+                                          "n_paths": tf.TensorShape([])},
+                                         tf.TensorShape([None])))
+    if transform:
+        ds = ds.map(lambda x, y: transformation(x, y))
 
+    if repeat:
+        ds = ds.repeat()
 
-- **Link indices**
-    - take path_ids and flatten it from a list with nested lists to a single vector [390 x 1] in the first sample - [0,1,1,2]
-- **Path indices**
-    - States which path each link belongs to in the link indices list [390 x 1] -> [0,0,1,1....]
-- **Seq indices**
-    - States the order that each link is encounter along the path [390 x 1] -> [0,1,0,1....]
-    - For example, the second entry in link indices (1) is the second link encounter on path 0.
-
-- Result Data:
-  - Traffic Matrix [n x n]
-  - Delay Matrix [n x n]
-  - both have the diagonal removed and are flattened to size [n_paths x 1] -> 182 x 1
-
-Model Inputs:
-- Link,Path,Seq Indices, n_paths, n_links
-
-model.py have
-x['n_paths']
-x['n_links']
-
-x['links']
-x['link_capacity']
-
-x['paths']
-x['packets']
-
-x['sequences']
-x['bandwith']
-'''
+    return ds
