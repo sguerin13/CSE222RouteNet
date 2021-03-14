@@ -13,11 +13,26 @@ class CustomLoss(nn.Module):
         # calculate the negative log-likelihood and return their average
         delay = torch.unsqueeze(y_pred[:,0],1)
         jitter = torch.unsqueeze(y_pred[:,1],1)
+
+        c = torch.log(torch.expm1(torch.tensor(0.098)))
+        sig = torch.add(torch.nn.functional.softplus(torch.add(c,jitter)),torch.tensor(1e-9))
+        jitter = torch.pow(sig,2)
         
         delay_t = torch.unsqueeze(torch.tensor(y[0]),1)
         jitter_t = torch.unsqueeze(torch.tensor(y[1]),1)
         
         num_packet = torch.unsqueeze(torch.tensor(num_packet),1)
         
-        nll = -num_packet * ((jitter_t + (delay_t - delay)**2)/(2*jitter**2) + torch.log(jitter))
-        return torch.mean(nll)
+        # nll = num_packet * ((jitter_t + (delay_t - delay)**2)/(2*jitter**2) + torch.log(jitter))
+
+        nll =               torch.add(
+                                    torch.mul(num_packet,
+                                              torch.div(torch.add(jitter_t,torch.pow(torch.sub(delay_t,delay),2)),
+                                                        torch.mul(torch.pow(jitter,2),2))
+                                             ),
+                                    torch.log(jitter)
+                                    )
+
+        out = torch.div(torch.sum(nll),torch.tensor(1e6))
+
+        return out

@@ -174,5 +174,5 @@ class RouteNet(nn.Module):
     def readout(self,path_state):
         x = F.relu(self.readOut['r1'](path_state))
         x = F.relu(self.readOut['r2'](x))
-        x = F.relu(self.readOut['r3'](x)) #TODO - look at changing this
+        x = self.readOut['r3'](x) 
         return x
