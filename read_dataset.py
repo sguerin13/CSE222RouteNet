@@ -11,6 +11,7 @@ class NetworkDataset(Dataset):
         reader = DatanetAPI(path, [], shuffle)
         it = iter(reader)
         self.data = list(it)
+#         print(self.data)
         self.length = len(self.data)
 
     def __len__(self):
@@ -44,7 +45,7 @@ class NetworkDataset(Dataset):
             for adj in g[node]:
                 cap_mat[node, adj] = g[node][adj][0]['bandwidth']
 
-        print(cap_mat)
+#         print(cap_mat)
 
         links = np.where(np.ravel(cap_mat) != None)[0].tolist()
 
@@ -88,13 +89,16 @@ class NetworkDataset(Dataset):
         avg_bw = []
         pkts_gen = []
         delay = []
+        jitter = []
         for i in range(result.shape[0]):
             for j in range(result.shape[1]):
                 flow = traffic[i, j]['Flows'][0]
                 avg_bw.append(flow['AvgBw'])
                 pkts_gen.append(flow['PktsGen'])
                 d = result[i, j]['AggInfo']['AvgDelay']
+                j = result[i,j]['AggInfo']['Jitter']
                 delay.append(d)
+                jitter.append(j)
 
         n_paths = len(path_ids)
         n_links = max(max(path_ids)) + 1
@@ -108,7 +112,7 @@ class NetworkDataset(Dataset):
             "sequences": sequ_indices,
             "n_links": n_links,
             "n_paths": n_paths
-        }, delay
+        }, (delay,jitter)
 
 
 def get_dataloader(dataset, batch_size, shuffle=False):

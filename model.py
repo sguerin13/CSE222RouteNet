@@ -17,7 +17,7 @@ class RouteNet(nn.Module):
         self.link_state_dim = 32
         self.path_state_dim = 32
         self.readout_dim = 8
-        self.output_units = 1
+        self.output_units = 2
         self.T = 8
 
         inSize = 10 # place holder
@@ -43,14 +43,16 @@ class RouteNet(nn.Module):
 
     def forward(self,x):
         
-        links = x['links']
-        paths = x['paths']
-        seqs  = x['sequences']
-        bandwidth = x['bandwith']
-        link_cap  = x['link_capacity']
+        links = torch.unsqueeze(torch.tensor(x['links']),1)                         
+        paths = torch.unsqueeze(torch.tensor(x['paths']),1)                 
+        seqs = torch.unsqueeze(torch.tensor(x['sequences']),1)
+        link_cap = torch.unsqueeze(torch.tensor(x['link_capacity']).float(),axis=1)
+        #link_cap = link_cap/torch.max(link_cap)
+        bandwidth = torch.unsqueeze(torch.tensor(x['bandwith']).float(), axis=1)
+        #bandwidth = bandwidth/torch.max(bandwidth)
 
         # state matrix shape for the link
-        link_h_state_shape = (x['n_links'], self.link_state_dim-1)
+        link_h_state_shape = (x['n_links'][0], self.link_state_dim-1)
 
         # create hidden state matrix shape for the path  
         path_h_state_shape = (x['n_paths'],self.path_state_dim-1)
@@ -172,5 +174,5 @@ class RouteNet(nn.Module):
     def readout(self,path_state):
         x = F.relu(self.readOut['r1'](path_state))
         x = F.relu(self.readOut['r2'](x))
-        x = self.readOut['r3'](x)
+        x = F.relu(self.readOut['r3'](x)) #TODO - look at changing this
         return x
