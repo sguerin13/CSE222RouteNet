@@ -2,9 +2,11 @@ import os
 import shutil
 
 cur_dir = os.getcwd()
-data_dir = os.path.join(cur_dir,'data')
-gnn_dir =  os.path.join(data_dir,'gnnet_data_set_training')
-new_data_dir = os.path.join(data_dir,'pt_dir')
+data_dir = os.path.join(cur_dir,'data/validation')
+gnn_dir =  os.path.join(data_dir,'gnnet_data_set_validation')
+new_data_dir = os.path.join(data_dir,'split_dir')
+if(not os.path.exists(new_data_dir)):
+    os.mkdir(new_data_dir)
 # os.mkdir(new_data_dir)
 training_data_elems = os.listdir(gnn_dir)
 

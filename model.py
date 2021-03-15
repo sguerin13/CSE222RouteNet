@@ -13,15 +13,15 @@ class RouteNet(nn.Module):
         # (batch, seq_len, feature size) or seq_len, batch, feature size
         # if sequence length is variable
         # may need to pad the sequence
-        
-        self.link_state_dim = 32
-        self.path_state_dim = 32
-        self.readout_dim = 8
-        self.output_units = 2
+        self.link_state_dim = 512
+        self.path_state_dim = 512
+        self.readout_dim = 256
+        self.output_units = 1
         self.T = 8
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
         inSize = 10 # place holder
-        hSize  = 32
+        hSize  = 512
         readSize = 10
         nLayer = 1
 
@@ -35,28 +35,33 @@ class RouteNet(nn.Module):
                           num_layers = nLayer,
                           batch_first=True)
         
-        self.readOut = nn.ModuleDict({  'r1': nn.Linear(hSize,self.readout_dim),
-                                        'r2': nn.Linear(self.readout_dim,self.readout_dim),
-                                        'r3': nn.Linear(self.readout_dim,self.output_units)
-                                        })
+        self.readOut_Delay = nn.ModuleDict({'r1': nn.Linear(hSize,self.readout_dim),
+                                            'r2': nn.Linear(self.readout_dim,int(self.readout_dim/2)),
+                                            'r3': nn.Linear(int(self.readout_dim/2),self.output_units)
+                                            })
         
+        self.readOut_Jitter = nn.ModuleDict({'r1': nn.Linear(hSize,self.readout_dim),
+                                             'r2': nn.Linear(self.readout_dim,int(self.readout_dim/2)),
+                                             'r3': nn.Linear(int(self.readout_dim/2),self.output_units)
+                                              })
+
 
     def forward(self,x):
         
-        links = torch.unsqueeze(torch.tensor(x['links']),1)                         
-        paths = torch.unsqueeze(torch.tensor(x['paths']),1)                 
-        seqs = torch.unsqueeze(torch.tensor(x['sequences']),1)
-        link_cap = torch.unsqueeze(torch.tensor(x['link_capacity']).float(),axis=1)
-        #link_cap = link_cap/torch.max(link_cap)
-        bandwidth = torch.unsqueeze(torch.tensor(x['bandwith']).float(), axis=1)
-        #bandwidth = bandwidth/torch.max(bandwidth)
+        links = x['links']                      
+        paths = x['paths']                
+        seqs = x['sequences']
+        link_cap = x['link_capacity']
+        # link_cap = link_cap/torch.max(link_cap)
+        bandwidth = x['bandwith']
+        # bandwidth = bandwidth/torch.max(bandwidth)
 
         # state matrix shape for the link
         link_h_state_shape = (x['n_links'][0], self.link_state_dim-1)
 
         # create hidden state matrix shape for the path  
         path_h_state_shape = (x['n_paths'],self.path_state_dim-1)
-        path_h_state = torch.cat((bandwidth,torch.zeros(path_h_state_shape)), axis=1)
+        path_h_state = torch.cat((bandwidth,torch.zeros(path_h_state_shape).to(self.device)), axis=1)
         
         # prepare input for path update RNN
         max_seq_len = torch.max(seqs)
@@ -71,7 +76,7 @@ class RouteNet(nn.Module):
         # flatten the double loop into a bulk matrix using the gather functionality
         # this is an aggregation of the state vector of each link on each path flattened into a (sum_paths(sum_links_on_paths) x h_state) size matrix 
         # using torch.gather
-        indices = torch.zeros(len(links),32)
+        indices = torch.zeros(len(links),self.link_state_dim).to(self.device)
         for i in range(len(links)):
             link_id = links[i]
             indices[i,:] = link_id
@@ -88,7 +93,7 @@ class RouteNet(nn.Module):
             
             # input to the path rnn layer P_u
             path_rnn_input_key = 'path_rnn_input_' + str(t)
-            vd[path_rnn_input_key] = torch.zeros(path_rnn_input_shape)
+            vd[path_rnn_input_key] = torch.zeros(path_rnn_input_shape).to(self.device)
             
             if (t > 0):  # for non leaf variables, we need to propagate the gradient back
                 vd[path_rnn_input_key].requires_grad = True
@@ -97,7 +102,7 @@ class RouteNet(nn.Module):
             # path hidden state output from P_U, initialized with just bandwidth at T_0, else copy
             path_h_state_key = 'path_h_state_' + str(t)
             if (t==0):
-                vd[path_h_state_key] = torch.cat((bandwidth,torch.zeros(path_h_state_shape)), axis=1)
+                vd[path_h_state_key] = torch.cat((bandwidth,torch.zeros(path_h_state_shape).to(self.device)), axis=1)
             else:
                 path_h_state_key = 'path_h_state_' + str(t)
                 path_h_prev = 'path_h_state_' + str(t-1)
@@ -114,7 +119,7 @@ class RouteNet(nn.Module):
             if (t == 0):
                 # create hidden state matrix for links and initialize with first column as link capacity
                 link_h_state_key = 'link_h_state_' + str(t)
-                vd[link_h_state_key] = torch.cat((link_cap,torch.zeros(link_h_state_shape)),1)
+                vd[link_h_state_key] = torch.cat((link_cap,torch.zeros(link_h_state_shape).to(self.device)),1)
             else:
                 # copy hidden state value for next pass through
                 link_h_state_key = 'link_h_state_' + str(t)
@@ -133,7 +138,7 @@ class RouteNet(nn.Module):
             
              # container for the link messages that are extracted from path rnn hidden states
             agg_link_message_key = 'aggregated_link_message_' + str(t)
-            vd[agg_link_message_key] = torch.zeros((x['n_links'],self.link_state_dim),requires_grad=True)
+            vd[agg_link_message_key] = torch.zeros((x['n_links'],self.link_state_dim),requires_grad=True).to(self.device)
             
             ########################################################################################
             
@@ -167,12 +172,17 @@ class RouteNet(nn.Module):
             ##########################################################################################
 
         # readout from the paths
-        y = self.readout(vd[path_h_state_key])
-        return y
+        d,j = self.readout(vd[path_h_state_key])
+        return d,j
 
 
     def readout(self,path_state):
-        x = F.relu(self.readOut['r1'](path_state))
-        x = F.relu(self.readOut['r2'](x))
-        x = self.readOut['r3'](x) 
-        return x
+        d = F.relu(self.readOut_Delay['r1'](path_state))
+        d = F.relu(self.readOut_Delay['r2'](d))
+        d = self.readOut_Delay['r3'](d)
+
+        j = F.relu(self.readOut_Jitter['r1'](path_state))
+        j = F.relu(self.readOut_Jitter['r2'](j))
+        j = self.readOut_Jitter['r3'](j)
+        
+        return (d,j)
