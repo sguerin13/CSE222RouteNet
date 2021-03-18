@@ -1,0 +1,16 @@
+
+epoch: 1, train loss: 0.004391018317772029, val delay percent error: 1.1700049240514139, val jitter percent error: inf
+epoch: 2, train loss: 0.0033449733764002675, val delay percent error: 0.8577618844113173, val jitter percent error: inf
+epoch: 3, train loss: 0.00292723440788454, val delay percent error: 1.09788272137532, val jitter percent error: inf
+epoch: 4, train loss: 0.0025225336657845494, val delay percent error: 1.034096956418906, val jitter percent error: inf
+epoch: 5, train loss: 0.0024022790274221633, val delay percent error: 0.8204119109432113, val jitter percent error: inf
+epoch: 6, train loss: 0.0023854173482098177, val delay percent error: 1.0471283743910846, val jitter percent error: inf
+epoch: 7, train loss: 0.0023577375218930014, val delay percent error: 0.9972393281613152, val jitter percent error: inf
+epoch: 8, train loss: 0.002344846472981162, val delay percent error: 0.9587792530726587, val jitter percent error: inf
+epoch: 9, train loss: 0.0023365468260034975, val delay percent error: 1.0260214074195522, val jitter percent error: inf
+epoch: 10, train loss: 0.002333070999636993, val delay percent error: 0.9631589732392248, val jitter percent error: inf
+epoch: 11, train loss: 0.002323505990740193, val delay percent error: 0.9591294691489176, val jitter percent error: inf
+epoch: 12, train loss: 0.0023224673420928934, val delay percent error: 0.9286396400736783, val jitter percent error: inf
+epoch: 13, train loss: 0.00231705110871858, val delay percent error: 0.9586803095989049, val jitter percent error: inf
+epoch: 14, train loss: 0.0023119021265918544, val delay percent error: 0.9733696777298299, val jitter percent error: inf
+epoch: 15, train loss: 0.0023096050372449846, val delay percent error: 0.9989245129222175, val jitter percent error: inf

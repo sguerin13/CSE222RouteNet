@@ -105,14 +105,25 @@ class Runner():
 
                 # data, labels = data.to(self.device),labels.to(self.device)
                                 # data, labels = data.to(self.device),labels.to(self.device)
-                labels[0] = torch.unsqueeze(torch.tensor(labels[0]),1).to(self.device)
-                labels[1] = torch.unsqueeze(torch.tensor(labels[1]),1).to(self.device)
+                # data, labels = data.to(self.device),labels.to(self.device)
+                labels[0] = torch.unsqueeze(torch.tensor(labels[0]),1)/(self.max_val_dict['del']) # normalize
+                labels[0] = labels[0].to(self.device)
+                labels[0] = labels[0].float()
+
+                labels[1] = torch.unsqueeze(torch.tensor(labels[1]),1)/(self.max_val_dict['jit'])
+                labels[1] = labels[1].to(self.device)
+                labels[1] = labels[1].float()
 
                 data['links'] = torch.unsqueeze(torch.tensor(data['links']),1).to(self.device)
                 data['paths'] = torch.unsqueeze(torch.tensor(data['paths']),1).to(self.device)                 
                 data['sequences'] = torch.unsqueeze(torch.tensor(data['sequences']),1).to(self.device)
-                data['link_capacity'] = torch.unsqueeze(torch.tensor(data['link_capacity']).float(),axis=1).to(self.device)
-                data['bandwith']= torch.unsqueeze(torch.tensor(data['bandwith']).float(), axis=1).to(self.device)
+                data['link_capacity'] = torch.unsqueeze(torch.tensor(data['link_capacity']).float(),axis=1)/(self.max_val_dict['cap'].float())
+                data['link_capacity'] = data['link_capacity'].to(self.device)
+                data['link_capacity'] = data['link_capacity'].float()
+                data['bandwith']= torch.unsqueeze(torch.tensor(data['bandwith']).float(), axis=1)/(self.max_val_dict['bw'].float())
+                data['bandwith'] = data['bandwith'].to(self.device)
+                data['bandwith'] = data['bandwith'].float()
+                
                 data['n_links'] = data['n_links'][0].to(self.device)
                 data['n_paths'] = data['n_paths'][0].to(self.device)
                 data['packets'] = data['packets'][0].to(self.device)

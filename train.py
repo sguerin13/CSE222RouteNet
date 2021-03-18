@@ -18,10 +18,10 @@ model.apply(weight_init)
 opts_dict = {
              'lr': .001,
              'batch_size': 1,
-             'epochs': 5
+             'epochs': 15
             }
 
 max_vals = torch.load(os.path.join(os.getcwd(),"max_values.pt"))
 
-runner = Runner(model,train_set,test_set,opts_dict,max_vals,log_name = "run_1")
+runner = Runner(model,train_set,test_set,opts_dict,max_vals,log_name = "run_2")
 runner.train()

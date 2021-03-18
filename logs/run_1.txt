@@ -1,0 +1,6 @@
+
+epoch: 1, train loss: 0.004778436114651893, val delay percent error: 6.731883575435522, val jitter percent error: inf
+epoch: 2, train loss: 0.003454804105592415, val delay percent error: 3.906982997760901, val jitter percent error: inf
+epoch: 3, train loss: 0.0031635943668050664, val delay percent error: 2.041193005141857, val jitter percent error: inf
+epoch: 4, train loss: 0.00291752390408675, val delay percent error: 1.0993176445497097, val jitter percent error: inf
+epoch: 5, train loss: 0.002624579746380802, val delay percent error: 1.1272567027198317, val jitter percent error: inf
